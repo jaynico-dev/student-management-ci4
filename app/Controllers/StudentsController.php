@@ -8,24 +8,24 @@ use App\Models\StudentsModel;
 
 class StudentsController extends BaseController
 {
-    // This controller handles student-related actions
+    // LIST - Display all students
     public function index()
     {
         $fetchStudent = new StudentsModel();
         $data['students'] = $fetchStudent->findAll();
         return view('students/list', $data);
     }
-    // Show the form for creating a new student
+    // LIST - Create a new student
     public function createStudent()
     {
         $data['studentNumber'] = '20000_'.uniqid();
         return view('students/add', $data);
     }
-    // Store a newly created student in storage
+    // ADD
     public function storeStudent() 
     {
         $insertStudents = new StudentsModel();
-        
+        $imageName = null;
         if ($img = $this->request->getFile('student_profile')) {
             if($img->isValid() && ! $img->hasMoved()) {
                 $imageName = $img->getRandomName();
@@ -48,7 +48,7 @@ class StudentsController extends BaseController
 
         return redirect()->to('/students')->with('success', 'Student added successfully!');
     }
-    // Show the form for editing the specified student
+    // EDIT
     public function editStudent($id)
     {
         $fetchStudent = new StudentsModel();
@@ -56,20 +56,25 @@ class StudentsController extends BaseController
 
         return view('students/edit', $data);
     }
-    // Update the specified student in storage
+    // UPDATE
     public function updateStudent($id) 
     {
         $updateStudents = new StudentsModel();
+        $student = $updateStudents->find($id);
         $db = db_connect();
 
+        // Check if a new image file is uploaded
         if ($img = $this->request->getFile('student_profile')) {
             if($img->isValid() && ! $img->hasMoved()) {
                 $imageName = $img->getRandomName();
                 $img->move(WRITEPATH.'uploads/', $imageName);
                 $data['student_profile'] = $imageName;
             }
+
+            $this->deleteImageFile($student['student_profile']);
         }
 
+        // Update the student profile image if a new file is uploaded
         if(!empty($_FILES['student_profile']['name'])) {
             $db->query("UPDATE tbl_students SET student_profile = '$imageName' WHERE id = '$id'");
         }
@@ -86,10 +91,21 @@ class StudentsController extends BaseController
 
         return redirect()->to('/students')->with('success', 'Student updated successfully!');
     }
-    // Remove the specified student from storage
+    // DELETE
     public function deleteStudent($id)
     {
-        
+        $model = new StudentsModel();
+        $student = $model->find($id);
+
+        if ($student) {
+            // Delete image first
+            $this->deleteImageFile($student['student_profile']);
+            // Delete record
+            $model->delete($id);
+            return redirect()->to('/students')->with('success', 'Student deleted successfully!');
+        }
+
+        return redirect()->to('/students')->with('error', 'Student not found!');
     }
 
     public function serveImage($filename)
@@ -104,5 +120,15 @@ class StudentsController extends BaseController
             ->setHeader('Content-Type', mime_content_type($path))
             ->setHeader('Content-Disposition', 'inline; filename="' . basename($path) . '"')
             ->setBody(file_get_contents($path));
+    }
+
+    private function deleteImageFile($filename)
+    {
+        $imagePath = WRITEPATH . 'uploads/' . $filename;
+        if (is_file($imagePath)) {
+            unlink($imagePath);
+            return true;
+        }
+        return false;
     }
 }
