@@ -59,7 +59,32 @@ class StudentsController extends BaseController
     // Update the specified student in storage
     public function updateStudent($id) 
     {
-        
+        $updateStudents = new StudentsModel();
+        $db = db_connect();
+
+        if ($img = $this->request->getFile('student_profile')) {
+            if($img->isValid() && ! $img->hasMoved()) {
+                $imageName = $img->getRandomName();
+                $img->move(WRITEPATH.'uploads/', $imageName);
+                $data['student_profile'] = $imageName;
+            }
+        }
+
+        if(!empty($_FILES['student_profile']['name'])) {
+            $db->query("UPDATE tbl_students SET student_profile = '$imageName' WHERE id = '$id'");
+        }
+
+        $data = array(
+            'student_name' => $this->request->getPost('student_name'),
+            'student_section' => $this->request->getPost('student_section'),
+            'student_course' => $this->request->getPost('student_course'),
+            'student_batch' => $this->request->getPost('student_batch'),
+            'student_grade_level' => $this->request->getPost('student_grade_level'),
+        );
+
+        $updateStudents->update($id, $data);
+
+        return redirect()->to('/students')->with('success', 'Student updated successfully!');
     }
     // Remove the specified student from storage
     public function deleteStudent($id)
